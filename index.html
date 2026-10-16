@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#17191d" />
+  <title>ATLAS Takeoff</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Standalone DXF framing takeoff</div>
+      <h1>ATLAS Takeoff</h1>
+    </div>
+    <div class="top-actions compact-top-actions">
+      <button id="openDxfBtn" class="button primary" type="button">OPEN</button>
+      <button id="openPrintBtn" class="button print-button" type="button">PRINT</button>
+      <input id="dxfFile" type="file" hidden>
+      <input id="pdfPrintFile" type="file" accept="application/pdf,.pdf" hidden>
+      <button id="wallModeBtn" class="button active-tool" type="button">WALL</button>
+      <button id="traceWallsBtn" class="button" type="button">TRACE</button>
+      <button id="traceLockBtn" class="button trace-lock-button" type="button" aria-pressed="false">LOCK</button>
+      <button id="orthoLockBtn" class="button ortho-lock-button" type="button" aria-pressed="false">ORTHO</button>
+      <span id="currentTypeBadge" class="current-type-badge compact-type-badge" role="status" aria-live="polite" title="Current wall type for new traced walls">TYPE: Unassigned</span>
+
+      <details id="moreMenu" class="more-menu">
+        <summary class="button more-summary">OPTIONS ▾</summary>
+        <div class="more-menu-panel">
+          <button id="saveProjectBtn" class="button" type="button">Save Project</button>
+          <button id="openProjectBtn" class="button" type="button">Open Saved</button>
+          <button id="fitBtn" class="button" type="button">Fit Drawing</button>
+          <button id="scale1Btn" class="button scale-point-button" type="button">Scale 1</button>
+          <button id="scale2Btn" class="button scale-point-button" type="button">Scale 2</button>
+
+          <label class="more-field">DXF units
+            <select id="unitSelect">
+              <option value="auto">Auto</option>
+              <option value="in">Inches</option>
+              <option value="ft">Feet</option>
+              <option value="mm">Millimeters</option>
+              <option value="cm">Centimeters</option>
+              <option value="m">Meters</option>
+            </select>
+          </label>
+
+          <button id="exportCsvBtn" class="button" type="button">Export CSV</button>
+          <button id="backupProjectBtn" class="button" type="button">Download Project Backup</button>
+          <button id="importProjectBtn" class="button" type="button">Import Project Backup</button>
+          <input id="projectImportFile" type="file" hidden>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <section class="viewer-card">
+      <button id="takeoffDrawerFloatBtn" class="takeoff-drawer-float" type="button" aria-label="Show takeoff options">
+        ☰ TAKEOFF
+      </button>
+      <div class="viewer-toolbar compact-viewer-toolbar">
+        <div id="fileStatus">No DXF loaded</div>
+
+        <div class="viewer-area-temp-actions">
+          <button id="areaSelectBtn" class="mini-tool-button area-select-button" type="button">AREA SELECT</button>
+          <button id="closeAreaBtn" class="mini-tool-button area-close-button" type="button" disabled>CLOSE AREA</button>
+          <button id="clearTempAreaBtn" class="mini-tool-button area-clear-button" type="button" disabled>CLEAR</button>
+        </div>
+
+        <details id="viewerOptionsMenu" class="viewer-options-menu">
+          <summary class="mini-tool-button viewer-options-summary">VIEW ▾</summary>
+          <div class="viewer-options-panel">
+            <label>Active type
+              <select id="activeWallTypeSelect">
+                <option value="">Unassigned</option>
+              </select>
+            </label>
+            <button id="findSelectedBtn" class="mini-tool-button" type="button" disabled>FIND</button>
+            <button id="deleteSelectedBtn" class="mini-tool-button delete-mini" type="button" disabled>DELETE</button>
+            <button id="fullscreenBtn" class="mini-tool-button fullscreen-main" type="button" aria-pressed="false">⛶ FULL SCREEN</button>
+            <div class="viewer-option-status">
+              <span id="scaleBadge" class="badge">Scale: DXF units</span>
+              <span id="wallCountBadge" class="badge">0 walls</span>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div id="fullScreenTools" class="fullscreen-tools" aria-label="Full-screen wall tools">
+        <button id="fsWallBtn" class="button" type="button">WALL</button>
+        <button id="fsTraceBtn" class="button" type="button">TRACE WALLS</button>
+        <button id="fsLockBtn" class="button" type="button">TRACE LOCK</button>
+        <button id="fsOrthoBtn" class="button" type="button">ORTHO</button>
+        <button id="fsAreaSelectBtn" class="button" type="button">AREA SELECT</button>
+        <button id="fsCloseAreaBtn" class="button" type="button" disabled>CLOSE AREA</button>
+        <button id="fsClearTempAreaBtn" class="button" type="button" disabled>CLEAR</button>
+        <span id="fsTypeBadge" class="current-type-badge" role="status">TYPE: Unassigned</span>
+        <span id="fsCurrentTypeBadge" class="current-type-badge" role="status">TYPE: Unassigned</span>
+        <button id="fsFitBtn" class="button" type="button">Fit</button>
+        <button id="fsExitBtn" class="button" type="button">Exit Full Screen</button>
+      </div>
+      <div id="canvasWrap">
+        <canvas id="dxfCanvas"></canvas>
+        <div id="emptyState" class="empty-state">
+          <strong>Open a DXF or PDF print</strong>
+          <span>Then tap a wall line to create a takeoff item.</span>
+        </div>
+      </div>
+
+      <div id="hintbar" class="hintbar">Tap wall • Drag pan • Pinch zoom</div>
+    </section>
+    <aside id="takeoffDrawer" class="side-panel takeoff-drawer collapsed">
+      <div class="takeoff-drawer-header">
+        <button id="takeoffDrawerToggle" class="button takeoff-drawer-toggle" type="button" aria-expanded="false">
+          TAKEOFF OPTIONS ▸
+        </button>
+      </div>
+
+      <div id="takeoffDrawerBody" class="takeoff-drawer-body">
+
+      <div class="panel-collapse-toolbar">
+        <button id="collapsePanelsBtn" class="mini-tool-button" type="button">Collapse</button>
+        <button id="expandPanelsBtn" class="mini-tool-button" type="button">Expand</button>
+      </div>
+      <section id="calibrationPanel" class="panel calibration-panel setup-panel-hidden">
+        <div class="panel-heading">
+          <h2>Scale Calibration</h2>
+          <button id="resetCalibrationBtn" class="text-button hidden" type="button">Reset</button>
+        </div>
+        <div id="calibrationStatus" class="muted calibration-copy">
+          Set Scale 1 and Scale 2 on a known dimension, then enter the real distance.
+        </div>
+        <div id="calibrationForm" class="calibration-form">
+          <div class="scale-point-status">
+            <div><span>Scale 1</span><strong id="scale1Status">Not set</strong></div>
+            <div><span>Scale 2</span><strong id="scale2Status">Not set</strong></div>
+          </div>
+          <div class="calibration-measured">
+            <span>Current measured distance</span>
+            <strong id="calibrationMeasured">—</strong>
+          </div>
+          <div class="field-row">
+            <label>Actual feet
+              <input id="calibrationFeet" type="number" min="0" step="1" inputmode="numeric" value="20">
+            </label>
+            <label>Actual inches
+              <input id="calibrationInches" type="number" min="0" step="0.0625" inputmode="decimal" value="0">
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="applyCalibrationBtn" class="button primary grow" type="button" disabled>Apply Calibration</button>
+            <button id="cancelCalibrationBtn" class="button" type="button">Cancel Point</button>
+          </div>
+        </div>
+      </section>
+
+      <details id="selectedWallPanel" class="panel collapsible-panel tool-priority" open>
+  <summary class="collapsible-summary">
+    <span>Selected Wall</span>
+    <span class="collapse-chevron">▾</span>
+  </summary>
+  <div class="collapsible-body panel-scroll-body">
+        <div id="selectionEmpty" class="muted">Select a line in the drawing.</div>
+
+        <form id="wallForm" class="wall-form hidden">
+          <div class="field-row">
+            <label>Wall #
+              <input id="wallNumber" type="text" autocomplete="off">
+            </label>
+            <label>Length
+              <input id="wallLength" type="text" readonly>
+            </label>
+          </div>
+
+          <label>Wall Type
+            <select id="wallTypeSelect">
+              <option value="">Unassigned</option>
+            </select>
+          </label>
+
+          <div class="field-row">
+            <label>Height
+              <select id="wallHeight">
+                <option value="8">8'-0"</option>
+                <option value="9">9'-0"</option>
+                <option value="10" selected>10'-0"</option>
+                <option value="12">12'-0"</option>
+                <option value="14">14'-0"</option>
+                <option value="16">16'-0"</option>
+                <option value="18">18'-0"</option>
+                <option value="20">20'-0"</option>
+              </select>
+            </label>
+            <label>Stud size
+              <select id="studSize">
+                <option>1-5/8"</option>
+                <option>2-1/2"</option>
+                <option selected>3-5/8"</option>
+                <option>4"</option>
+                <option>6"</option>
+                <option>8"</option>
+                <option>10"</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label>Gauge
+              <select id="gauge">
+                <option>25ga</option>
+                <option selected>20ga</option>
+                <option>18ga</option>
+                <option>16ga</option>
+                <option>14ga</option>
+              </select>
+            </label>
+            <label>Spacing
+              <select id="spacing">
+                <option value="12">12" O.C.</option>
+                <option value="16" selected>16" O.C.</option>
+                <option value="24">24" O.C.</option>
+              </select>
+            </label>
+          </div>
+
+          <label>Top track
+            <select id="topTrack">
+              <option selected>Standard</option>
+              <option>Slip / Deep Leg</option>
+              <option>Deflection</option>
+              <option>None</option>
+            </select>
+          </label>
+
+          <label>Bottom track
+            <select id="bottomTrack">
+              <option selected>Standard</option>
+              <option>None</option>
+            </select>
+          </label>
+
+          <div class="field-row">
+            <label class="checkline">
+              <input id="doubleEnds" type="checkbox">
+              Double end studs
+            </label>
+            <label>Waste %
+              <input id="wastePercent" type="number" min="0" max="30" step="1" value="0">
+            </label>
+          </div>
+
+          <div class="calc-box">
+            <div><span>Stud quantity</span><strong id="calcStuds">—</strong></div>
+            <div><span>Bottom track</span><strong id="calcBottom">—</strong></div>
+            <div><span>Top track</span><strong id="calcTop">—</strong></div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="button primary grow">Save Wall</button>
+            <button id="deleteWallBtn" type="button" class="button danger">Delete</button>
+          </div>
+        </form>
+  </div>
+</details>
+
+
+      <details id="wallTypePanel" class="panel collapsible-panel" open>
+  <summary class="collapsible-summary">
+    <span>Wall Type Library</span>
+    <span class="collapse-chevron">▾</span>
+  </summary>
+  <div class="collapsible-body panel-scroll-body">
+<div class="panel-heading panel-heading-no-title">
+          <div class="panel-heading-actions">
+            <button id="editActiveWallTypeBtn" class="button compact-button" type="button" disabled>Edit Active</button>
+            <span id="wallTypeCountBadge" class="badge">0 types</span>
+          </div>
+        </div>
+        <div class="muted type-help">
+          Save a framing assembly once, then reuse it while selecting or tracing walls.
+        </div>
+        <label>Type name
+          <input id="wallTypeName" type="text" autocomplete="off" placeholder="Example: W1, W2, Shaft Wall">
+        </label>
+        <div class="form-actions type-actions">
+          <button id="saveWallTypeBtn" class="button primary grow" type="button">Save / Update Type</button>
+          <button id="deleteWallTypeBtn" class="button danger" type="button">Delete Type</button>
+        </div>
+        <div id="wallTypeLibraryList" class="summary-list muted wall-type-scroll-list">No wall types saved yet.</div>
+  </div>
+</details>
+
+      <details id="markupsPanel" class="panel collapsible-panel" open>
+  <summary class="collapsible-summary"><span>Takeoff Markups</span><span class="collapse-chevron">▾</span></summary>
+  <div class="collapsible-body panel-scroll-body">
+<div class="panel-heading">
+          <div>
+            <h2>Takeoff Markups</h2>
+            <div class="muted markups-subtitle">Select, edit, find, or delete individual walls.</div>
+          </div>
+          <span id="markupsCountBadge" class="badge">0 items</span>
+        </div>
+
+        <div class="markups-toolbar">
+          <label>Show type
+            <select id="markupsTypeFilter">
+              <option value="">All types</option>
+            </select>
+          </label>
+          <button id="collapseMarkupGroupsBtn" class="button" type="button">Hide Groups</button>
+          <button id="expandMarkupGroupsBtn" class="button" type="button">Show Groups</button>
+          <button id="undoLastBtn" class="button" type="button" disabled>Undo Last</button>
+          <button id="clearWallsBtn" class="button danger-soft" type="button">Clear All</button>
+        </div>
+
+        <div class="table-wrap markups-table-wrap">
+          <table id="wallTable" class="markups-table">
+            <thead>
+              <tr>
+                <th>Wall</th>
+                <th>Type</th>
+                <th>Length</th>
+                <th>Ht.</th>
+                <th>Stud</th>
+                <th>Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+  </div>
+</details>
+
+
+      <details class="panel collapsible-panel">
+  <summary class="collapsible-summary"><span>Wall Type Totals</span><span class="collapse-chevron">▾</span></summary>
+  <div class="collapsible-body panel-scroll-body">
+<div id="wallTypeTotals" class="summary-list muted">No walls saved yet.</div>
+  </div>
+</details>
+
+      <details class="panel collapsible-panel">
+  <summary class="collapsible-summary"><span>Material Summary</span><span class="collapse-chevron">▾</span></summary>
+  <div class="collapsible-body panel-scroll-body">
+<div id="temporaryAreaTotals" class="temporary-area-totals muted">
+      No temporary area closed.
+    </div>
+    <div id="materialSummary" class="summary-list muted">No walls saved yet.</div>
+  </div>
+</details>
+      </div>
+    </aside>
+  </main>
+
+
+  <div id="wallTypeEditorDialog" class="project-modal hidden" role="dialog" aria-modal="true" aria-labelledby="wallTypeEditorTitle">
+    <div class="project-dialog-card wall-type-editor-card">
+      <div class="panel-heading">
+        <h2 id="wallTypeEditorTitle">Edit Wall Type</h2>
+        <button id="closeWallTypeEditorBtn" class="button" type="button">✕</button>
+      </div>
+
+      <div class="muted project-note">Edit the framing assembly here. You do not need to select a wall first.</div>
+
+      <label>Type name
+        <input id="editTypeName" type="text" maxlength="80" autocomplete="off">
+      </label>
+
+      <div class="field-row">
+        <label>Height
+          <select id="editTypeHeight">
+            <option value="8">8'-0"</option><option value="9">9'-0"</option><option value="10">10'-0"</option>
+            <option value="12">12'-0"</option><option value="14">14'-0"</option><option value="16">16'-0"</option>
+            <option value="18">18'-0"</option><option value="20">20'-0"</option>
+          </select>
+        </label>
+        <label>Stud size
+          <select id="editTypeStudSize">
+            <option>1-5/8"</option><option>2-1/2"</option><option>3-5/8"</option><option>4"</option>
+            <option>6"</option><option>8"</option><option>10"</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label>Gauge
+          <select id="editTypeGauge">
+            <option>25ga</option><option>20ga</option><option>18ga</option><option>16ga</option><option>14ga</option>
+          </select>
+        </label>
+        <label>Spacing
+          <select id="editTypeSpacing">
+            <option value="12">12" O.C.</option><option value="16">16" O.C.</option><option value="24">24" O.C.</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Top track
+        <select id="editTypeTopTrack">
+          <option>Standard</option><option>Slip / Deep Leg</option><option>Deflection</option><option>None</option>
+        </select>
+      </label>
+
+      <label>Bottom track
+        <select id="editTypeBottomTrack">
+          <option>Standard</option><option>None</option>
+        </select>
+      </label>
+
+      <div class="field-row">
+        <label class="checkline editor-checkline">
+          <input id="editTypeDoubleEnds" type="checkbox"> Double end studs
+        </label>
+        <label>Waste %
+          <input id="editTypeWaste" type="number" min="0" max="30" step="1" value="0">
+        </label>
+      </div>
+
+      <label class="editor-update-existing">
+        <input id="editTypeUpdateExisting" type="checkbox" checked>
+        Update all existing walls assigned to this wall type
+      </label>
+
+      <div id="wallTypeEditorStatus" class="project-storage-status muted" role="status" aria-live="polite"></div>
+
+      <div class="project-dialog-actions">
+        <button id="saveWallTypeEditorBtn" class="button primary grow" type="button">Save Changes</button>
+        <button id="deleteWallTypeEditorBtn" class="button danger" type="button">Delete Type</button>
+        <button id="cancelWallTypeEditorBtn" class="button" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="printConverterDialog" class="project-modal hidden" role="dialog" aria-modal="true" aria-labelledby="printConverterTitle">
+    <div class="project-dialog-card print-converter-card">
+      <div class="panel-heading">
+        <h2 id="printConverterTitle">Print → DXF</h2>
+        <button id="closePrintConverterBtn" class="button" type="button">✕</button>
+      </div>
+
+      <div class="muted project-note">
+        Open a PDF print, choose a page, then convert its vector linework directly to ATLAS.
+        Text and legends can be carried into the DXF as a separate PDF_TEXT layer.
+      </div>
+
+      <div class="print-file-row">
+        <button id="choosePrintPdfBtn" class="button primary" type="button">Choose PDF Print</button>
+        <div id="printFileName" class="print-file-name">No PDF selected</div>
+      </div>
+
+      <div class="field-row print-page-row">
+        <label>Page
+          <input id="printPageNumber" type="number" min="1" step="1" value="1">
+        </label>
+        <div id="printPageCount" class="print-page-count muted">— pages</div>
+        <button id="previewPrintPageBtn" class="button" type="button" disabled>Preview Page</button>
+      </div>
+
+      <label class="editor-update-existing">
+        <input id="includePrintText" type="checkbox" checked>
+        Include text / legends in generated DXF
+      </label>
+
+      <label class="editor-update-existing">
+        <input id="skipTinyPrintLines" type="checkbox">
+        Fast filter: skip PDF fragments under 1/8"
+      </label>
+
+      <div class="print-preview-wrap">
+        <canvas id="printPreviewCanvas"></canvas>
+        <div id="printPreviewEmpty" class="print-preview-empty">
+          Choose a PDF print to preview a page.
+        </div>
+      </div>
+
+      <div id="printConvertStatus" class="project-storage-status muted" role="status" aria-live="polite"></div>
+      <div id="printConvertDiagnostics" class="print-convert-diagnostics muted"></div>
+
+      <div class="project-dialog-actions print-converter-actions">
+        <button id="convertLoadPrintBtn" class="button primary grow" type="button" disabled>CREATE DXF + LOAD</button>
+        <button id="downloadConvertedDxfBtn" class="button" type="button" disabled>DOWNLOAD DXF</button>
+        <button id="cancelPrintConverterBtn" class="button" type="button">Cancel</button>
+      </div>
+
+      <div class="print-converter-footnote">
+        Vector/CAD PDFs convert best. Scanned image-only sheets can be previewed, but accurate CAD linework cannot be reconstructed automatically.
+      </div>
+    </div>
+  </div>
+
+  <div id="projectDialog" class="project-modal hidden" role="dialog" aria-modal="true" aria-labelledby="projectDialogTitle">
+    <div class="project-dialog-card">
+      <div class="panel-heading">
+        <h2 id="projectDialogTitle">Projects</h2>
+        <button id="closeProjectDialogBtn" class="button" type="button">✕</button>
+      </div>
+      <div class="muted project-note">Saved on this browser/device. Download a backup to keep a portable copy.</div>
+      <label>Project name
+        <input id="projectNameInput" type="text" maxlength="100" placeholder="Example: Macon - Building A" autocomplete="off">
+      </label>
+      <div class="project-dialog-actions">
+        <button id="confirmSaveProjectBtn" class="button primary" type="button">Save Current Project</button>
+        <button id="dialogBackupProjectBtn" class="button" type="button">Download Backup</button>
+      </div>
+      <div id="projectStorageStatus" class="project-storage-status muted" role="status" aria-live="polite"></div>
+      <div class="project-list-heading">Saved projects</div>
+      <div id="savedProjectsList" class="saved-projects-list"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
